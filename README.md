@@ -25,40 +25,6 @@ gemini-excel-extractor/
 
 ⚙️ Setup & Installation
 1. Clone the repository:
-Bash
-git clone [https://github.com/yourusername/gemini-excel-extractor.git](https://github.com/yourusername/gemini-excel-extractor.git)
-cd gemini-excel-extractor
-Gemini said
-That is fantastic news! Getting that first successful API response after battling environment variables and quotas is a great feeling.
-
-Now that the code works, it’s time to package it up. A strong README.md is essentially the front page of your project. It shows anyone looking at your GitHub profile that you don't just write code that works, but you write code that other people can understand and use.
-
-Create a file named README.md in your project folder (right next to app.py) and paste this Markdown into it. I've tailored it exactly to what we just built, including a troubleshooting section for that exact PowerShell error we fought earlier!
-
-Markdown
-# Gemini Ledger Extractor 📄➡️📊
-
-An automated Python service that uses the **Google Gemini Vision API** to transcribe historical handwritten ledgers and export them directly into structured Excel files.
-
-## 🚀 Overview
-Extracting structured data from old, handwritten documents is notoriously difficult for traditional OCR. This project leverages the multimodal capabilities of the new `google-genai` SDK to "read" an image of a 1902 NYC Real Estate Assessment ledger, extract the specific columns, and format the output into a clean, ready-to-use `.xlsx` spreadsheet.
-
-## 🛠️ Tech Stack
-* **LLM:** Google Gemini API (Multimodal Vision)
-* **Language:** Python 3.x
-* **Data Processing:** Pandas, OpenPyxl
-* **Environment Management:** `venv`, Python-dotenv
-
-## 📁 Project Structure
-```text
-gemini-excel-extractor/
-├── app.py              # Main extraction logic & API interaction
-├── .env                # Private API Key (Not uploaded to GitHub)
-├── .gitignore          # Prevents venv and .env from being committed
-├── requirements.txt    # List of project dependencies
-└── README.md           # Project documentation
-⚙️ Setup & Installation
-1. Clone the repository:
 
 Bash
 git clone [https://github.com/yourusername/gemini-excel-extractor.git](https://github.com/yourusername/gemini-excel-extractor.git)
