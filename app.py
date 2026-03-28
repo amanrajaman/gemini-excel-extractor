@@ -26,7 +26,7 @@ def extract_ledger_to_excel(image_path):
     # We use 'gemini-1.5-flash' which is the stable workhorse for OCR
    # Use the stable model with the generous free tier
     response = client.models.generate_content(
-        model="gemini-2.5-flash",  # <--- CHANGE THIS BACK
+        model="gemini-2.5-flash", 
         contents=[
             prompt,
             types.Part.from_bytes(
