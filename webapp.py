@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
 import json
-import os
-from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from PIL import Image
@@ -45,11 +43,10 @@ st.markdown('<p class="main-title">✨ VisionAI Document Digitizer</p>', unsafe_
 st.markdown('<p class="sub-title">Transform messy, handwritten legacy records into searchable, editable databases instantly.</p>', unsafe_allow_html=True)
 
 # --- 3. Setup Gemini Client ---
-load_dotenv()
-api_key = os.getenv("GEMINI_API_KEY")
-
-if not api_key:
-    st.error("⚠️ API Key not found! Please check your .env file.")
+try:
+    api_key = st.secrets["GEMINI_API_KEY"]
+except KeyError:
+    st.error("⚠️ API Key not found! Please check your Streamlit App Secrets.")
     st.stop()
 
 try:
