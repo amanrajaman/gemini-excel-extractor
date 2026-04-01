@@ -4,6 +4,8 @@ import json
 from google import genai
 from google.genai import types
 from PIL import Image
+from io import BytesIO
+from streamlit_cropper import st_cropper
 
 # --- 1. Page Configuration & Custom CSS ---
 st.set_page_config(
@@ -21,7 +23,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<p class="main-title">✨ VisionAI Document Digitizer</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-title">Batch process handwritten legacy records into unified, searchable databases.</p>', unsafe_allow_html=True)
+st.markdown('<p class="sub-title">Batch process or precision-crop legacy records into searchable databases.</p>', unsafe_allow_html=True)
 
 # --- 2. Setup Gemini Client ---
 try:
@@ -39,52 +41,69 @@ except Exception:
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/2103/2103254.png", width=60)
     st.header("⚙️ Engine Settings")
-    model_choice = st.selectbox("AI Vision Model", ["gemini-2.5-flash"])
+    model_choice = st.selectbox("AI Vision Model", [ "gemini-2.5-flash"])
     st.divider()
-    st.info("💡 **Pro Tip:** You can upload multiple pages at once. The AI will stitch them into a single master database.")
+    st.info("💡 **Smart Upload:** Upload 1 image to use the Precision Cropper, or multiple images for Auto-Batching.")
 
-# --- 4. Main UI & Bulk File Uploader ---
-# UPDATED: accept_multiple_files=True allows batch uploading
+# --- 4. Main UI & Smart File Uploader ---
 uploaded_files = st.file_uploader(
-    "Upload Images (JPG/PNG) - Select multiple files at once", 
+    "Upload Images (JPG/PNG)", 
     type=["jpg", "jpeg", "png"], 
     accept_multiple_files=True
 )
 
-if uploaded_files: # If the list is not empty
+if uploaded_files:
     st.divider()
     
-    st.info(f"📁 **{len(uploaded_files)} document(s) queued for processing.**")
+    images_to_process = [] # This will hold the final images (cropped or original)
     
-    # Show a small preview of the first document to confirm upload
-    with st.expander("Preview First Document"):
-        st.image(Image.open(uploaded_files[0]), use_container_width=True)
-
-    if st.button("🚀 Digitize Entire Batch Now", use_container_width=True, type="primary"):
+    # --- THE SMART UX LOGIC ---
+    if len(uploaded_files) == 1:
+        # Precision Cropper Mode
+        st.markdown("### ✂️ Step 2: Precision Crop")
+        st.info("Drag the blue box to outline ONLY the data table. This removes background noise and improves accuracy.")
         
-        # Initialize our Master Database and UI elements
+        col1, col2 = st.columns([1.5, 1])
+        with col1:
+            # Load and fix color profile
+            img = Image.open(uploaded_files[0])
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+                
+            # Render the interactive cropper
+            cropped_img = st_cropper(img, realtime_update=True, box_color='#1E3A8A')
+            
+        with col2:
+            st.markdown("**Cropped Preview:**")
+            st.image(cropped_img, use_container_width=True)
+            
+        images_to_process.append((uploaded_files[0].name, cropped_img))
+
+    else:
+        # Batch Mode
+        st.info(f"📁 **{len(uploaded_files)} documents queued for high-speed batch processing.**")
+        with st.expander("Preview First Document"):
+            st.image(Image.open(uploaded_files[0]), use_container_width=True)
+            
+        for file in uploaded_files:
+            img = Image.open(file)
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            images_to_process.append((file.name, img))
+
+    # --- THE EXTRACTION ENGINE ---
+    if st.button("🚀 Digitize Data Now", use_container_width=True, type="primary"):
+        
         master_df = pd.DataFrame()
         progress_bar = st.progress(0)
         status_text = st.empty()
         
-        # Loop through every uploaded image
-        for index, file in enumerate(uploaded_files):
-            status_text.markdown(f"**Processing ({index + 1}/{len(uploaded_files)}):** `{file.name}` ...")
+        for index, (filename, img) in enumerate(images_to_process):
+            status_text.markdown(f"**Processing ({index + 1}/{len(images_to_process)}):** `{filename}` ...")
             
             try:
-                from io import BytesIO
-                
-                # 1. Open the image with PIL
-                img = Image.open(file)
-                
-                # 2. Convert to RGB (prevents errors with PNG transparency)
-                if img.mode != 'RGB':
-                    img = img.convert('RGB')
-                    
-                # 3. Resize if it's a massive photo (keeps it sharp enough for OCR, but small in file size)
-                img.thumbnail((2000, 2000)) 
-                
-                # 4. Compress to JPEG
+                # OPTIMIZATION: Shrink and compress the image before sending to AI
+                img.thumbnail((2000, 2000))
                 img_byte_arr = BytesIO()
                 img.save(img_byte_arr, format='JPEG', quality=85)
                 img_bytes = img_byte_arr.getvalue()
@@ -110,46 +129,31 @@ if uploaded_files: # If the list is not empty
                 clean_json = response.text.replace('```json', '').replace('```', '').strip()
                 data = json.loads(clean_json)
                 
-                # Convert this single image's data to a DataFrame
                 temp_df = pd.DataFrame(data)
-                
-                # DATA LINEAGE: Add a column to track which image this row came from
-                temp_df.insert(0, 'source_file', file.name)
-                
-                # Stitch it into the Master Database
+                temp_df.insert(0, 'source_file', filename)
                 master_df = pd.concat([master_df, temp_df], ignore_index=True)
 
             except Exception as e:
-                st.error(f"⚠️ Error processing `{file.name}`. Skipping this file. Error: {e}")
+                st.error(f"⚠️ Error processing `{filename}`. Error: {e}")
             
-            # Update the progress bar
-            progress_bar.progress((index + 1) / len(uploaded_files))
+            progress_bar.progress((index + 1) / len(images_to_process))
 
-        # --- Display Final Results ---
-        status_text.empty() # Clear the status text
+        # --- FINAL RESULTS DISPLAY ---
+        status_text.empty() 
         
         if not master_df.empty:
-            st.toast('Batch Extraction Complete!', icon='🎉')
+            st.toast('Extraction Complete!', icon='🎉')
             st.balloons()
+            st.markdown("### 📊 Digitized Database")
             
-            st.markdown("### 📊 Master Digitized Database")
-            
-            metric_col1, metric_col2, metric_col3 = st.columns(3)
-            metric_col1.metric("Total Rows Extracted", len(master_df))
-            metric_col2.metric("Total Columns", len(master_df.columns))
-            metric_col3.metric("Documents Processed", len(uploaded_files))
-
-            st.markdown("*(Double-click any cell below to edit before downloading)*")
             edited_df = st.data_editor(master_df, use_container_width=True, num_rows="dynamic", hide_index=True)
-
             csv = edited_df.to_csv(index=False).encode('utf-8')
+            
             st.download_button(
-                label="📥 Download Master Database (CSV)",
+                label="📥 Download Verified Database (CSV)",
                 data=csv,
-                file_name="master_digitized_records.csv",
+                file_name="digitized_records.csv",
                 mime="text/csv",
                 use_container_width=True,
                 type="primary"
             )
-        else:
-            st.error("❌ Failed to extract data from the uploaded batch. Please check the images and try again.")
