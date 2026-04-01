@@ -72,8 +72,22 @@ if uploaded_files: # If the list is not empty
             status_text.markdown(f"**Processing ({index + 1}/{len(uploaded_files)}):** `{file.name}` ...")
             
             try:
-                file.seek(0)
-                img_bytes = file.read()
+                from io import BytesIO
+                
+                # 1. Open the image with PIL
+                img = Image.open(file)
+                
+                # 2. Convert to RGB (prevents errors with PNG transparency)
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                    
+                # 3. Resize if it's a massive photo (keeps it sharp enough for OCR, but small in file size)
+                img.thumbnail((2000, 2000)) 
+                
+                # 4. Compress to JPEG
+                img_byte_arr = BytesIO()
+                img.save(img_byte_arr, format='JPEG', quality=85)
+                img_bytes = img_byte_arr.getvalue()
 
                 prompt = """
                 Carefully analyze the uploaded document and extract all the tabular data.
